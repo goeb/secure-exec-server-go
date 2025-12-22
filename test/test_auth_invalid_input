@@ -1,0 +1,34 @@
+#!/bin/sh
+# Test various situations where the signature line is invalid
+
+# In case a previous test did not shutdown the daemon
+echo shutdown | socat - TCP:localhost:4455
+T=$(basename $0)
+SRCDIR=$(dirname $0)
+
+set -e  # stop on first error
+
+./ses 4455 $SRCDIR/test.cert 2>&1 | tee $T.log &
+pid=$!
+sleep 0.5  # allow time for the server to start
+
+# Test various invalid signature lines
+socat FILE:/dev/null TCP:localhost:4455
+echo "" | socat - TCP:localhost:4455
+echo "#" | socat - TCP:localhost:4455
+echo "x" | socat - TCP:localhost:4455
+echo "# " | socat - TCP:localhost:4455
+echo "# 3x" | socat - TCP:localhost:4455
+echo "# 3ef" | socat - TCP:localhost:4455
+
+echo shutdown | socat - TCP:localhost:4455
+
+wait $pid
+
+grep "0: number of bytes received: 0" $T.log >/dev/null
+grep "1: authentication FAILED: too short" $T.log >/dev/null
+grep "2: authentication FAILED: verification failed" $T.log >/dev/null
+grep "3: authentication FAILED: missing '#' as first character" $T.log >/dev/null
+grep "4: authentication FAILED: verification failed" $T.log >/dev/null
+grep "5: authentication FAILED: encoding/hex: invalid byte: U+0078 'x'" $T.log >/dev/null
+grep "6: authentication FAILED: encoding/hex: odd length hex string" $T.log >/dev/null

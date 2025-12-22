@@ -1,0 +1,19 @@
+#!/bin/sh
+# Test a very basic example
+
+set -e  # stop on first error
+
+T=$(basename $0)
+SRCDIR=$(dirname $0)
+
+./ses 4455 $SRCDIR/test.cert &
+pid=$!
+sleep 0.5  # allow time for the server to start
+
+socat - TCP:localhost:4455 << EOF
+the quick brown fox
+EOF
+
+echo shutdown | socat - TCP:localhost:4455
+
+wait $pid
